@@ -4,10 +4,15 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const fs = require('fs').promises;
 const { Telegraf, Markup } = require('telegraf');
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-
-puppeteer.use(StealthPlugin());
+let puppeteer = null;
+let StealthPlugin = null;
+try {
+    puppeteer = require('puppeteer-extra');
+    StealthPlugin = require('puppeteer-extra-plugin-stealth');
+    puppeteer.use(StealthPlugin());
+} catch {
+    puppeteer = null;
+}
 
 const YOUR_BOT_TOKEN = "YOUR_TOKEN_HERE";
 const ADMIN_CHAT_IDS = ["123456"];
@@ -272,10 +277,57 @@ async function initAxiosWithCookie() {
     return axiosClient;
 }
 
-async function refreshCookie() {
-    if (useManualCookie) return true;
+async function loginWithAxios() {
     try {
-        await delay(2000);
+        const client = axios.create({
+            timeout: 45000,
+            maxRedirects: 10,
+            headers: buildHeaders()
+        });
+
+        const lp = await client.get(LOGIN_URL);
+        const lpCookies = lp.headers['set-cookie'];
+        let sessionCookie = '';
+        if (lpCookies && lpCookies.length > 0) {
+            sessionCookie = lpCookies.map(c => c.split(';')[0]).join('; ');
+        }
+
+        const $ = cheerio.load(lp.data);
+        const token = $('input[name="_token"]').val();
+        if (!token) return false;
+
+        const loginData = new URLSearchParams();
+        loginData.append('email', USERNAME);
+        loginData.append('password', PASSWORD);
+        loginData.append('_token', token);
+
+        const lr = await client.post(LOGIN_URL, loginData.toString(), {
+            headers: buildHeaders({
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Referer': LOGIN_URL,
+                'Origin': 'https://www.ivasms.com',
+                'Cookie': sessionCookie
+            }),
+            maxRedirects: 10
+        });
+
+        const setCookie = lr.headers['set-cookie'];
+        if (setCookie && setCookie.length > 0) {
+            const cookieString = setCookie.map(c => c.split(';')[0]).join('; ');
+            await saveCookies(cookieString);
+            if (axiosClient) axiosClient.defaults.headers['Cookie'] = cookieString;
+            return true;
+        }
+        return false;
+    } catch (err) {
+        console.error('loginWithAxios error:', err.response?.status || err.message);
+        return false;
+    }
+}
+
+async function loginWithBrowser() {
+    if (!puppeteer) return false;
+    try {
         const browser = await puppeteer.launch({
             headless: 'new',
             args: [
@@ -285,12 +337,12 @@ async function refreshCookie() {
                 '--disable-infobars',
                 '--window-size=1920,1080',
                 '--disable-dev-shm-usage',
+                '--disable-gpu',
                 '--lang=id-ID,id'
             ]
         });
 
         const page = await browser.newPage();
-
         await page.setViewport({ width: 1920, height: 1080 });
         await page.setExtraHTTPHeaders({
             'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7'
@@ -335,12 +387,24 @@ async function refreshCookie() {
             if (axiosClient) axiosClient.defaults.headers['Cookie'] = cookieString;
             return true;
         }
-
         return false;
     } catch (err) {
-        console.error('refreshCookie puppeteer error:', err.message);
+        console.error('loginWithBrowser error:', err.message);
         return false;
     }
+}
+
+async function refreshCookie() {
+    if (useManualCookie) return true;
+    await delay(2000);
+
+    const axiosResult = await loginWithAxios();
+    if (axiosResult) return true;
+
+    const browserResult = await loginWithBrowser();
+    if (browserResult) return true;
+
+    return false;
 }
 
 async function ensureValidSession() {
@@ -714,93 +778,45 @@ Pilih menu di bawah:</blockquote>`;
             if (!ADMIN_CHAT_IDS.includes(uid)) {
                 return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
-            await editMsg(ctx, '<blockquote><b>🍪 Lagi login ke IVASMS...</b>\n\nPake browser beneran, tunggu 10-20 detik...</blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>🍪 Lagi login ke IVASMS...</b>\n\nNyoba login, tunggu sebentar...</blockquote>');
 
-            const browser = await puppeteer.launch({
-                headless: 'new',
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-blink-features=AutomationControlled',
-                    '--disable-infobars',
-                    '--window-size=1920,1080',
-                    '--disable-dev-shm-usage',
-                    '--lang=id-ID,id'
-                ]
-            });
-
-            const page = await browser.newPage();
-            await page.setViewport({ width: 1920, height: 1080 });
-            await page.setExtraHTTPHeaders({
-                'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7'
-            });
-
-            await page.goto(LOGIN_URL, { waitUntil: 'networkidle2', timeout: 60000 });
-            await delay(2000 + Math.random() * 3000);
-
-            const emailField = await page.$('input[name="email"]');
-            if (!emailField) {
-                await browser.close();
-                return editMsg(ctx, '<blockquote><b>❌ Gagal</b>\n\nHalaman login nggak ketemu form email. Mungkin Cloudflare block.</blockquote>', { parse_mode: 'HTML' });
-            }
-
-            await page.click('input[name="email"]');
-            await delay(300 + Math.random() * 500);
-            await page.type('input[name="email"]', USERNAME, { delay: 50 + Math.random() * 80 });
-
-            await delay(500 + Math.random() * 1000);
-
-            await page.click('input[name="password"]');
-            await delay(300 + Math.random() * 500);
-            await page.type('input[name="password"]', PASSWORD, { delay: 50 + Math.random() * 80 });
-
-            await delay(1000 + Math.random() * 2000);
-
-            const submitBtn = await page.$('button[type="submit"], input[type="submit"]');
-            if (submitBtn) {
-                await submitBtn.click();
-            } else {
-                await page.evaluate(() => {
-                    const form = document.querySelector('form');
-                    if (form) form.submit();
-                });
-            }
-
-            await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {});
-            await delay(3000);
-
-            const finalUrl = page.url();
-            const cookies = await page.cookies();
-            await browser.close();
-
-            if (cookies.length > 0 && !finalUrl.includes('login')) {
-                const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
-                await saveCookies(cookieString);
-                if (axiosClient) axiosClient.defaults.headers['Cookie'] = cookieString;
+            const axiosOk = await loginWithAxios();
+            if (axiosOk) {
                 useManualCookie = true;
-
-                await editMsg(ctx, `<blockquote><b>✅ Login berhasil!</b>
+                return editMsg(ctx, `<blockquote><b>✅ Login berhasil!</b>
 
 <b>Status:</b> Aktif
-<b>Cookie:</b> ${cookies.length} entries
-<b>Metode:</b> Headless Browser (anti-detect)
+<b>Metode:</b> Direct Request
 
-Bot sekarang bisa akses IVASMS tanpa masalah.</blockquote>`, { parse_mode: 'HTML', ...createBackButton() });
-            } else {
-                await editMsg(ctx, `<blockquote><b>❌ Login gagal</b>
+Bot sekarang bisa akses IVASMS.</blockquote>`, createBackButton());
+            }
 
-Browser berhasil buka halaman tapi login nggak berhasil.
+            if (puppeteer) {
+                await editMsg(ctx, '<blockquote><b>🍪 Axios gagal, nyoba pake browser...</b>\n\nTunggu 15-30 detik...</blockquote>');
+                const browserOk = await loginWithBrowser();
+                if (browserOk) {
+                    useManualCookie = true;
+                    return editMsg(ctx, `<blockquote><b>✅ Login berhasil!</b>
+
+<b>Status:</b> Aktif
+<b>Metode:</b> Headless Browser (stealth)
+
+Bot sekarang bisa akses IVASMS.</blockquote>`, createBackButton());
+                }
+            }
+
+            await editMsg(ctx, `<blockquote><b>❌ Login gagal</b>
 
 <b>Kemungkinan:</b>
 • Email/password salah
-• Ada captcha tambahan
-• Akun diblokir
+• IP server diblock IVASMS
+• Perlu install chrome dependencies
 
-Cek credentials lo dulu.</blockquote>`, { parse_mode: 'HTML' });
-            }
+<b>Solusi:</b>
+Coba install deps: <code>apt install -y libatk1.0-0 libatk-bridge2.0-0 libcups2 libxdamage1 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2 libatspi2.0-0 libxshmfence1 libnss3</code></blockquote>`, createBackButton());
         } catch (err) {
-            console.error('get_cookie puppeteer error:', err);
-            await editMsg(ctx, `<blockquote><b>❌ Error</b>\n\n${escapeHtml(err.message)}\n\nPastiin server punya cukup RAM buat jalanin browser.</blockquote>`, { parse_mode: 'HTML' });
+            console.error('get_cookie error:', err);
+            await editMsg(ctx, `<blockquote><b>❌ Error</b>\n\n${escapeHtml(err.message)}</blockquote>`);
         }
     });
 
