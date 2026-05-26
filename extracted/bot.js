@@ -273,16 +273,50 @@ async function initAxiosWithCookie() {
     } else {
         useManualCookie = false;
     }
-    axiosClient = axios.create({ timeout: 45000, maxRedirects: 5, headers });
+
+    const proxyConfig = {};
+    if (process.env.PROXY_URL) {
+        const proxyUrl = new URL(process.env.PROXY_URL);
+        proxyConfig.proxy = {
+            host: proxyUrl.hostname,
+            port: parseInt(proxyUrl.port),
+            protocol: proxyUrl.protocol.replace(':', '')
+        };
+        if (proxyUrl.username) {
+            proxyConfig.proxy.auth = {
+                username: decodeURIComponent(proxyUrl.username),
+                password: decodeURIComponent(proxyUrl.password || '')
+            };
+        }
+    }
+
+    axiosClient = axios.create({ timeout: 45000, maxRedirects: 5, headers, ...proxyConfig });
     return axiosClient;
 }
 
 async function loginWithAxios() {
     try {
+        const proxyConfig = {};
+        if (process.env.PROXY_URL) {
+            const proxyUrl = new URL(process.env.PROXY_URL);
+            proxyConfig.proxy = {
+                host: proxyUrl.hostname,
+                port: parseInt(proxyUrl.port),
+                protocol: proxyUrl.protocol.replace(':', '')
+            };
+            if (proxyUrl.username) {
+                proxyConfig.proxy.auth = {
+                    username: decodeURIComponent(proxyUrl.username),
+                    password: decodeURIComponent(proxyUrl.password || '')
+                };
+            }
+        }
+
         const client = axios.create({
             timeout: 45000,
             maxRedirects: 10,
-            headers: buildHeaders()
+            headers: buildHeaders(),
+            ...proxyConfig
         });
 
         const lp = await client.get(LOGIN_URL);
