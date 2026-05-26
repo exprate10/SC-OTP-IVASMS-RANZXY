@@ -4,6 +4,10 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const fs = require('fs').promises;
 const { Telegraf, Markup } = require('telegraf');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+
+puppeteer.use(StealthPlugin());
 
 const YOUR_BOT_TOKEN = "YOUR_TOKEN_HERE";
 const ADMIN_CHAT_IDS = ["123456"];
@@ -264,41 +268,69 @@ async function refreshCookie() {
     if (useManualCookie) return true;
     try {
         await delay(2000);
-        const client = axios.create({
-            timeout: 45000,
-            maxRedirects: 10,
-            headers: buildHeaders()
+        const browser = await puppeteer.launch({
+            headless: 'new',
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-blink-features=AutomationControlled',
+                '--disable-infobars',
+                '--window-size=1920,1080',
+                '--disable-dev-shm-usage',
+                '--lang=id-ID,id'
+            ]
         });
 
-        const lp = await client.get(LOGIN_URL);
-        const $ = cheerio.load(lp.data);
-        const token = $('input[name="_token"]').val();
-        if (!token) return false;
+        const page = await browser.newPage();
 
-        const loginData = new URLSearchParams();
-        loginData.append('email', USERNAME);
-        loginData.append('password', PASSWORD);
-        loginData.append('_token', token);
-
-        const lr = await client.post(LOGIN_URL, loginData.toString(), {
-            headers: buildHeaders({
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Referer': LOGIN_URL,
-                'Origin': 'https://www.ivasms.com'
-            }),
-            maxRedirects: 10
+        await page.setViewport({ width: 1920, height: 1080 });
+        await page.setExtraHTTPHeaders({
+            'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7'
         });
 
-        const setCookie = lr.headers['set-cookie'];
-        if (setCookie && setCookie.length > 0) {
-            const cookieString = setCookie.map(c => c.split(';')[0]).join('; ');
+        await page.goto(LOGIN_URL, { waitUntil: 'networkidle2', timeout: 60000 });
+        await delay(2000 + Math.random() * 3000);
+
+        await page.waitForSelector('input[name="email"]', { timeout: 30000 });
+
+        await page.click('input[name="email"]');
+        await delay(300 + Math.random() * 500);
+        await page.type('input[name="email"]', USERNAME, { delay: 50 + Math.random() * 80 });
+
+        await delay(500 + Math.random() * 1000);
+
+        await page.click('input[name="password"]');
+        await delay(300 + Math.random() * 500);
+        await page.type('input[name="password"]', PASSWORD, { delay: 50 + Math.random() * 80 });
+
+        await delay(1000 + Math.random() * 2000);
+
+        const submitBtn = await page.$('button[type="submit"], input[type="submit"]');
+        if (submitBtn) {
+            await submitBtn.click();
+        } else {
+            await page.evaluate(() => {
+                const form = document.querySelector('form');
+                if (form) form.submit();
+            });
+        }
+
+        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {});
+        await delay(3000);
+
+        const cookies = await page.cookies();
+        await browser.close();
+
+        if (cookies.length > 0) {
+            const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
             await saveCookies(cookieString);
             if (axiosClient) axiosClient.defaults.headers['Cookie'] = cookieString;
             return true;
         }
+
         return false;
     } catch (err) {
-        console.error('refreshCookie error:', err.response?.status || err.message);
+        console.error('refreshCookie puppeteer error:', err.message);
         return false;
     }
 }
@@ -675,63 +707,93 @@ Pilih menu di bawah:</blockquote>`;
                 return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
             await ctx.deleteMessage().catch(() => {});
-            await ctx.reply('<blockquote><b>🍪 Lagi ambil cookie...</b>\n\nSebentar ya...</blockquote>', { parse_mode: 'HTML' });
+            await ctx.reply('<blockquote><b>🍪 Lagi login ke IVASMS...</b>\n\nPake browser beneran, tunggu 10-20 detik...</blockquote>', { parse_mode: 'HTML' });
 
-            const client = axios.create({
-                timeout: 30000,
-                maxRedirects: 10,
-                headers: buildHeaders()
+            const browser = await puppeteer.launch({
+                headless: 'new',
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-infobars',
+                    '--window-size=1920,1080',
+                    '--disable-dev-shm-usage',
+                    '--lang=id-ID,id'
+                ]
             });
 
-            const lp = await client.get(LOGIN_URL);
-            const $ = cheerio.load(lp.data);
-            const token = $('input[name="_token"]').val();
+            const page = await browser.newPage();
+            await page.setViewport({ width: 1920, height: 1080 });
+            await page.setExtraHTTPHeaders({
+                'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7'
+            });
 
-            if (!token) {
-                return ctx.reply('<blockquote><b>❌ Gagal</b>\n\nToken CSRF nggak ketemu. Coba lagi.</blockquote>', { parse_mode: 'HTML' });
+            await page.goto(LOGIN_URL, { waitUntil: 'networkidle2', timeout: 60000 });
+            await delay(2000 + Math.random() * 3000);
+
+            const emailField = await page.$('input[name="email"]');
+            if (!emailField) {
+                await browser.close();
+                return ctx.reply('<blockquote><b>❌ Gagal</b>\n\nHalaman login nggak ketemu form email. Mungkin Cloudflare block.</blockquote>', { parse_mode: 'HTML' });
             }
 
-            const loginData = new URLSearchParams();
-            loginData.append('email', USERNAME);
-            loginData.append('password', PASSWORD);
-            loginData.append('_token', token);
+            await page.click('input[name="email"]');
+            await delay(300 + Math.random() * 500);
+            await page.type('input[name="email"]', USERNAME, { delay: 50 + Math.random() * 80 });
 
-            const lr = await client.post(LOGIN_URL, loginData.toString(), {
-                headers: buildHeaders({
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Referer': LOGIN_URL,
-                    'Origin': 'https://www.ivasms.com'
-                }),
-                maxRedirects: 10
-            });
+            await delay(500 + Math.random() * 1000);
 
-            const setCookie = lr.headers['set-cookie'];
-            if (setCookie && setCookie.length > 0) {
-                const cookieString = setCookie.map(c => c.split(';')[0]).join('; ');
+            await page.click('input[name="password"]');
+            await delay(300 + Math.random() * 500);
+            await page.type('input[name="password"]', PASSWORD, { delay: 50 + Math.random() * 80 });
+
+            await delay(1000 + Math.random() * 2000);
+
+            const submitBtn = await page.$('button[type="submit"], input[type="submit"]');
+            if (submitBtn) {
+                await submitBtn.click();
+            } else {
+                await page.evaluate(() => {
+                    const form = document.querySelector('form');
+                    if (form) form.submit();
+                });
+            }
+
+            await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {});
+            await delay(3000);
+
+            const finalUrl = page.url();
+            const cookies = await page.cookies();
+            await browser.close();
+
+            if (cookies.length > 0 && !finalUrl.includes('login')) {
+                const cookieString = cookies.map(c => `${c.name}=${c.value}`).join('; ');
                 await saveCookies(cookieString);
                 if (axiosClient) axiosClient.defaults.headers['Cookie'] = cookieString;
                 useManualCookie = true;
 
-                await ctx.reply(`<blockquote><b>✅ Cookie berhasil disimpan!</b>
+                await ctx.reply(`<blockquote><b>✅ Login berhasil!</b>
 
 <b>Status:</b> Aktif
-<b>Panjang cookie:</b> ${cookieString.length} karakter
+<b>Cookie:</b> ${cookies.length} entries
+<b>Metode:</b> Headless Browser (anti-detect)
 
-Semua request ke IVASMS sekarang pakai cookie ini.</blockquote>`, { parse_mode: 'HTML', ...createBackButton() });
+Bot sekarang bisa akses IVASMS tanpa masalah.</blockquote>`, { parse_mode: 'HTML', ...createBackButton() });
             } else {
                 await ctx.reply(`<blockquote><b>❌ Login gagal</b>
 
-Server nggak kasih cookie balik.
+Browser berhasil buka halaman tapi login nggak berhasil.
 
-Cek:
-• Email: <code>${escapeHtml(USERNAME)}</code>
-• Password: pastiin bener
+<b>Kemungkinan:</b>
+• Email/password salah
+• Ada captcha tambahan
+• Akun diblokir
 
-Atau IP server mungkin kena block IVASMS.</blockquote>`, { parse_mode: 'HTML' });
+Cek credentials lo dulu.</blockquote>`, { parse_mode: 'HTML' });
             }
         } catch (err) {
-            console.error('get_cookie error:', err);
-            await ctx.reply(`<blockquote><b>❌ Error</b>\n\n${escapeHtml(String(err.response?.status || err.message))}\n\nIP server kemungkinan diblokir IVASMS.</blockquote>`, { parse_mode: 'HTML' });
+            console.error('get_cookie puppeteer error:', err);
+            await ctx.reply(`<blockquote><b>❌ Error</b>\n\n${escapeHtml(err.message)}\n\nPastiin server punya cukup RAM buat jalanin browser.</blockquote>`, { parse_mode: 'HTML' });
         }
     });
 
