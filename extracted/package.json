@@ -1,0 +1,56 @@
+{
+  "name": "ivasms-bot-premium",
+  "version": "2.0.0",
+  "description": "IVASMS Telegram Bot Premium - Real-time OTP Monitor with Live Country Detection & Cookie-based Authentication",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "nodemon bot.js",
+    "setup": "npm install",
+    "clean": "rm -rf node_modules package-lock.json",
+    "update": "npm update"
+  },
+  "keywords": [
+    "telegram-bot",
+    "ivasms",
+    "sms-forwarder",
+    "otp-service",
+    "automation",
+    "otp-monitor",
+    "cookie-auth",
+    "live-country-detection",
+    "premium-bot"
+  ],
+  "author": "RanzxyModz",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12",
+    "telegraf": "^4.12.2"
+  },
+  "optionalDependencies": {
+    "puppeteer": "^22.0.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ivasms-bot/ivasms-telegram-bot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ivasms-bot/ivasms-telegram-bot/issues"
+  },
+  "homepage": "https://github.com/ivasms-bot/ivasms-telegram-bot#readme",
+  "files": [
+    "bot.js",
+    "package.json",
+    "README.md"
+  ]
+}
