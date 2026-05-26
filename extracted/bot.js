@@ -137,6 +137,14 @@ function createBackButton() {
     ]);
 }
 
+async function editMsg(ctx, text, extra = {}) {
+    try {
+        await ctx.editMessageText(text, { parse_mode: 'HTML', ...extra });
+    } catch {
+        await ctx.reply(text, { parse_mode: 'HTML', ...extra }).catch(() => {});
+    }
+}
+
 
 
 async function loadChatIds() {
@@ -704,10 +712,9 @@ Pilih menu di bawah:</blockquote>`;
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
-            await ctx.deleteMessage().catch(() => {});
-            await ctx.reply('<blockquote><b>🍪 Lagi login ke IVASMS...</b>\n\nPake browser beneran, tunggu 10-20 detik...</blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>🍪 Lagi login ke IVASMS...</b>\n\nPake browser beneran, tunggu 10-20 detik...</blockquote>', { parse_mode: 'HTML' });
 
             const browser = await puppeteer.launch({
                 headless: 'new',
@@ -734,7 +741,7 @@ Pilih menu di bawah:</blockquote>`;
             const emailField = await page.$('input[name="email"]');
             if (!emailField) {
                 await browser.close();
-                return ctx.reply('<blockquote><b>❌ Gagal</b>\n\nHalaman login nggak ketemu form email. Mungkin Cloudflare block.</blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>❌ Gagal</b>\n\nHalaman login nggak ketemu form email. Mungkin Cloudflare block.</blockquote>', { parse_mode: 'HTML' });
             }
 
             await page.click('input[name="email"]');
@@ -772,7 +779,7 @@ Pilih menu di bawah:</blockquote>`;
                 if (axiosClient) axiosClient.defaults.headers['Cookie'] = cookieString;
                 useManualCookie = true;
 
-                await ctx.reply(`<blockquote><b>✅ Login berhasil!</b>
+                await editMsg(ctx, `<blockquote><b>✅ Login berhasil!</b>
 
 <b>Status:</b> Aktif
 <b>Cookie:</b> ${cookies.length} entries
@@ -780,7 +787,7 @@ Pilih menu di bawah:</blockquote>`;
 
 Bot sekarang bisa akses IVASMS tanpa masalah.</blockquote>`, { parse_mode: 'HTML', ...createBackButton() });
             } else {
-                await ctx.reply(`<blockquote><b>❌ Login gagal</b>
+                await editMsg(ctx, `<blockquote><b>❌ Login gagal</b>
 
 Browser berhasil buka halaman tapi login nggak berhasil.
 
@@ -793,7 +800,7 @@ Cek credentials lo dulu.</blockquote>`, { parse_mode: 'HTML' });
             }
         } catch (err) {
             console.error('get_cookie puppeteer error:', err);
-            await ctx.reply(`<blockquote><b>❌ Error</b>\n\n${escapeHtml(err.message)}\n\nPastiin server punya cukup RAM buat jalanin browser.</blockquote>`, { parse_mode: 'HTML' });
+            await editMsg(ctx, `<blockquote><b>❌ Error</b>\n\n${escapeHtml(err.message)}\n\nPastiin server punya cukup RAM buat jalanin browser.</blockquote>`, { parse_mode: 'HTML' });
         }
     });
 
@@ -802,14 +809,13 @@ Cek credentials lo dulu.</blockquote>`, { parse_mode: 'HTML' });
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
-            await ctx.deleteMessage().catch(() => {});
-            await ctx.reply('<blockquote><b>🌍 Lagi ngambil data negara...</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>🌍 Lagi ngambil data negara...</b></blockquote>', { parse_mode: 'HTML' });
 
             const countryData = await fetchLiveCountries();
             if (!countryData || !countryData.highTraffic || countryData.highTraffic.length === 0) {
-                return ctx.reply('<blockquote><b>❌ Data kosong atau session expired.</b>\n\nCoba ambil cookie dulu.</blockquote>', { parse_mode: 'HTML', ...createBackButton() });
+                return editMsg(ctx, '<blockquote><b>❌ Data kosong atau session expired.</b>\n\nCoba ambil cookie dulu.</blockquote>', { parse_mode: 'HTML', ...createBackButton() });
             }
 
             const buttons = countryData.highTraffic.map(c => {
@@ -827,10 +833,10 @@ Cek credentials lo dulu.</blockquote>`, { parse_mode: 'HTML' });
 ${list}
 
 Klik negara buat lihat nomornya:</blockquote>`;
-            await ctx.reply(msg, { parse_mode: 'HTML', ...Markup.inlineKeyboard(buttons) });
+            await editMsg(ctx, msg, { parse_mode: 'HTML', ...Markup.inlineKeyboard(buttons) });
         } catch (err) {
             console.error('live_countries error:', err);
-            await ctx.reply('<blockquote><b>❌ Error ambil data negara.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error ambil data negara.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -839,18 +845,17 @@ Klik negara buat lihat nomornya:</blockquote>`;
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
 
             const countryName = ctx.match[1];
             const flag = getCountryFlag(countryName);
 
-            await ctx.deleteMessage().catch(() => {});
-            await ctx.reply(`<blockquote><b>📞 Ngambil nomor untuk ${flag} ${escapeHtml(countryName)}...</b></blockquote>`, { parse_mode: 'HTML' });
+            await editMsg(ctx, `<blockquote><b>📞 Ngambil nomor untuk ${flag} ${escapeHtml(countryName)}...</b></blockquote>`, { parse_mode: 'HTML' });
 
             const numbers = await getNumbersByCountry(countryName);
             if (!numbers || numbers.length === 0) {
-                return ctx.reply('<blockquote><b>❌ Nomor nggak ditemukan.</b></blockquote>', { parse_mode: 'HTML', ...createBackButton() });
+                return editMsg(ctx, '<blockquote><b>❌ Nomor nggak ditemukan.</b></blockquote>', { parse_mode: 'HTML', ...createBackButton() });
             }
 
             const numbersList = numbers.map((num, i) => `${i + 1}. <code>${escapeHtml(num)}</code>`).join('\n');
@@ -867,10 +872,10 @@ ${numbersList}</blockquote>`;
             numberButtons.push([Markup.button.callback('🔙 Kembali ke Negara', 'live_countries')]);
             numberButtons.push([Markup.button.callback('🏠 Main Menu', 'back_to_main')]);
 
-            await ctx.reply(msg, { parse_mode: 'HTML', ...Markup.inlineKeyboard(numberButtons) });
+            await editMsg(ctx, msg, { parse_mode: 'HTML', ...Markup.inlineKeyboard(numberButtons) });
         } catch (err) {
             console.error('view_numbers error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -879,7 +884,7 @@ ${numbersList}</blockquote>`;
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
 
             const countryName = decodeURIComponent(ctx.match[1]);
@@ -890,7 +895,7 @@ ${numbersList}</blockquote>`;
             const related = [...processedIds].filter(id => id.startsWith(`${number}::`)).slice(-10);
 
             if (related.length === 0) {
-                return ctx.reply(`<blockquote><b>📭 Belum ada riwayat SMS</b>
+                return editMsg(ctx, `<blockquote><b>📭 Belum ada riwayat SMS</b>
 ${flag} ${escapeHtml(countryName)}
 📞 <code>${escapeHtml(number)}</code></blockquote>`, { parse_mode: 'HTML', ...createBackButton() });
             }
@@ -903,10 +908,10 @@ ${flag} <b>${escapeHtml(countryName)}</b>
 <b>Total:</b> <code>${related.length} SMS</code>
 
 ${smsList}</blockquote>`;
-            await ctx.reply(msg, { parse_mode: 'HTML', ...createBackButton() });
+            await editMsg(ctx, msg, { parse_mode: 'HTML', ...createBackButton() });
         } catch (err) {
             console.error('vsms error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -915,9 +920,9 @@ ${smsList}</blockquote>`;
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
-            await ctx.deleteMessage().catch(() => {});
+            
 
             const chatIds = await loadChatIds();
             const processedIds = await loadProcessedIds();
@@ -941,10 +946,10 @@ ${smsList}</blockquote>`;
 <b>Memory:</b> <code>${memory} MB</code>
 
 ✅ Semua sistem jalan normal</blockquote>`;
-            await ctx.reply(msg, { parse_mode: 'HTML', ...createBackButton() });
+            await editMsg(ctx, msg, { parse_mode: 'HTML', ...createBackButton() });
         } catch (err) {
             console.error('status_bot error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -955,10 +960,9 @@ ${smsList}</blockquote>`;
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
-            await ctx.deleteMessage().catch(() => {});
-            await ctx.reply('<blockquote><b>👥 Manage Chats</b></blockquote>', {
+            await editMsg(ctx, '<blockquote><b>👥 Manage Chats</b></blockquote>', {
                 parse_mode: 'HTML',
                 ...Markup.inlineKeyboard([
                     [Markup.button.callback('➕ Tambah Chat', 'add_chat_menu')],
@@ -970,7 +974,7 @@ ${smsList}</blockquote>`;
             });
         } catch (err) {
             console.error('manage_chats error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -979,9 +983,9 @@ ${smsList}</blockquote>`;
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
-            await ctx.reply(`<blockquote><b>➕ Tambah Chat ID</b>
+            await editMsg(ctx, `<blockquote><b>➕ Tambah Chat ID</b>
 
 Kirim Chat ID yang mau ditambahin.
 
@@ -993,7 +997,7 @@ Ketik /batal buat cancel.</blockquote>`, { parse_mode: 'HTML' });
             await saveTempState({ waitingFor: 'add_chat', tempData: {} });
         } catch (err) {
             console.error('add_chat_menu error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -1002,21 +1006,21 @@ Ketik /batal buat cancel.</blockquote>`, { parse_mode: 'HTML' });
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
             const chatIds = await loadChatIds();
             if (chatIds.length === 0) {
-                return ctx.reply('<blockquote><b>📭 Belum ada chat terdaftar.</b></blockquote>', { parse_mode: 'HTML', ...createBackButton() });
+                return editMsg(ctx, '<blockquote><b>📭 Belum ada chat terdaftar.</b></blockquote>', { parse_mode: 'HTML', ...createBackButton() });
             }
             const buttons = chatIds.map(id => [Markup.button.callback(`❌ ${id}`, `rm_chat_${id}`)]);
             buttons.push([Markup.button.callback('🔙 Kembali', 'back_to_main')]);
-            await ctx.reply(`<blockquote><b>➖ Hapus Chat</b>
+            await editMsg(ctx, `<blockquote><b>➖ Hapus Chat</b>
 
 Pilih chat yang mau dihapus:
 <b>Total:</b> <code>${chatIds.length} chat</code></blockquote>`, { parse_mode: 'HTML', ...Markup.inlineKeyboard(buttons) });
         } catch (err) {
             console.error('remove_chat_menu error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -1025,7 +1029,7 @@ Pilih chat yang mau dihapus:
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
             const targetId = ctx.match[1];
             const chatIds = await loadChatIds();
@@ -1033,13 +1037,13 @@ Pilih chat yang mau dihapus:
             if (idx > -1) {
                 chatIds.splice(idx, 1);
                 await saveChatIds(chatIds);
-                await ctx.reply(`<blockquote><b>✅ Berhasil</b>\n\nChat ID <code>${escapeHtml(targetId)}</code> sudah dihapus.</blockquote>`, { parse_mode: 'HTML' });
+                await editMsg(ctx, `<blockquote><b>✅ Berhasil</b>\n\nChat ID <code>${escapeHtml(targetId)}</code> sudah dihapus.</blockquote>`, { parse_mode: 'HTML' });
             } else {
-                await ctx.reply(`<blockquote><b>❌ Gagal</b>\n\nChat ID <code>${escapeHtml(targetId)}</code> nggak ditemukan.</blockquote>`, { parse_mode: 'HTML' });
+                await editMsg(ctx, `<blockquote><b>❌ Gagal</b>\n\nChat ID <code>${escapeHtml(targetId)}</code> nggak ditemukan.</blockquote>`, { parse_mode: 'HTML' });
             }
         } catch (err) {
             console.error('rm_chat error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -1048,21 +1052,21 @@ Pilih chat yang mau dihapus:
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
             const chatIds = await loadChatIds();
             if (chatIds.length === 0) {
-                return ctx.reply('<blockquote><b>📭 Belum ada chat terdaftar.</b></blockquote>', { parse_mode: 'HTML', ...createBackButton() });
+                return editMsg(ctx, '<blockquote><b>📭 Belum ada chat terdaftar.</b></blockquote>', { parse_mode: 'HTML', ...createBackButton() });
             }
             const list = chatIds.map((id, i) => `${i + 1}. <code>${escapeHtml(id)}</code>`).join('\n');
-            await ctx.reply(`<blockquote><b>👥 Daftar Chat</b>
+            await editMsg(ctx, `<blockquote><b>👥 Daftar Chat</b>
 
 ${list}
 
 <b>Total:</b> <code>${chatIds.length} chat</code></blockquote>`, { parse_mode: 'HTML', ...createBackButton() });
         } catch (err) {
             console.error('list_chats_menu error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -1071,9 +1075,9 @@ ${list}
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
-            await ctx.reply(`<blockquote><b>🧹 Hapus Semua Chat</b>
+            await editMsg(ctx, `<blockquote><b>🧹 Hapus Semua Chat</b>
 
 ⚠️ Ini bakal hapus semua chat terdaftar.
 
@@ -1088,7 +1092,7 @@ Yakin?</blockquote>`, {
             });
         } catch (err) {
             console.error('clear_chats_menu error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -1097,13 +1101,13 @@ Yakin?</blockquote>`, {
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
             await saveChatIds([]);
-            await ctx.reply('<blockquote><b>✅ Semua chat sudah dihapus.</b></blockquote>', { parse_mode: 'HTML', ...createBackButton() });
+            await editMsg(ctx, '<blockquote><b>✅ Semua chat sudah dihapus.</b></blockquote>', { parse_mode: 'HTML', ...createBackButton() });
         } catch (err) {
             console.error('confirm_clear_chats error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -1114,15 +1118,15 @@ Yakin?</blockquote>`, {
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
-            await ctx.deleteMessage().catch(() => {});
+            
             const settings = await loadSettings();
             const notifStatus = settings.notifications ? '🟢 Aktif' : '🔴 Mati';
             const fmtStatus = settings.messageFormat === 'detailed' ? '📝 Detail' : '📄 Simple';
             const authMode = useManualCookie ? 'Manual Cookie' : 'Auto Login';
 
-            await ctx.reply(`<blockquote><b>⚙️ Settings</b>
+            await editMsg(ctx, `<blockquote><b>⚙️ Settings</b>
 
 <b>⏰ Interval:</b> <code>${settings.interval} detik</code>
 <b>🔔 Notifikasi:</b> <code>${notifStatus}</code>
@@ -1139,7 +1143,7 @@ Yakin?</blockquote>`, {
             });
         } catch (err) {
             console.error('settings_menu error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -1148,9 +1152,9 @@ Yakin?</blockquote>`, {
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
-            await ctx.reply(`<blockquote><b>⏰ Ganti Interval Polling</b>
+            await editMsg(ctx, `<blockquote><b>⏰ Ganti Interval Polling</b>
 
 Kirim angka intervalnya dalam detik.
 
@@ -1162,7 +1166,7 @@ Ketik /batal buat cancel.</blockquote>`, { parse_mode: 'HTML' });
             await saveTempState({ waitingFor: 'change_interval', tempData: {} });
         } catch (err) {
             console.error('change_interval error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -1171,16 +1175,16 @@ Ketik /batal buat cancel.</blockquote>`, { parse_mode: 'HTML' });
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
             const settings = await loadSettings();
             settings.notifications = !settings.notifications;
             await saveSettings(settings);
             const status = settings.notifications ? 'dinyalain' : 'dimatiin';
-            await ctx.reply(`<blockquote><b>🔔 Notifikasi</b>\n\nNotifikasi sekarang <b>${status}</b>.</blockquote>`, { parse_mode: 'HTML', ...createBackButton() });
+            await editMsg(ctx, `<blockquote><b>🔔 Notifikasi</b>\n\nNotifikasi sekarang <b>${status}</b>.</blockquote>`, { parse_mode: 'HTML', ...createBackButton() });
         } catch (err) {
             console.error('toggle_notifications error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -1189,16 +1193,16 @@ Ketik /batal buat cancel.</blockquote>`, { parse_mode: 'HTML' });
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
             const settings = await loadSettings();
             settings.messageFormat = settings.messageFormat === 'detailed' ? 'simple' : 'detailed';
             await saveSettings(settings);
             const fmt = settings.messageFormat === 'detailed' ? 'Detail' : 'Simple';
-            await ctx.reply(`<blockquote><b>📱 Format Pesan</b>\n\nFormat diganti ke: <b>${fmt}</b>.</blockquote>`, { parse_mode: 'HTML', ...createBackButton() });
+            await editMsg(ctx, `<blockquote><b>📱 Format Pesan</b>\n\nFormat diganti ke: <b>${fmt}</b>.</blockquote>`, { parse_mode: 'HTML', ...createBackButton() });
         } catch (err) {
             console.error('change_message_format error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -1207,18 +1211,18 @@ Ketik /batal buat cancel.</blockquote>`, { parse_mode: 'HTML' });
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
-            await ctx.reply('<blockquote><b>🔧 Testing koneksi ke IVASMS...</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>🔧 Testing koneksi ke IVASMS...</b></blockquote>', { parse_mode: 'HTML' });
             const result = await testIvasmsConnection();
             if (result.success && result.loginSuccess) {
-                await ctx.reply(`<blockquote><b>✅ Koneksi OK</b>
+                await editMsg(ctx, `<blockquote><b>✅ Koneksi OK</b>
 
 <b>📡 Status:</b> Terhubung
 <b>⏱️ Response:</b> <code>${result.responseTime}ms</code>
 <b>🔐 Auth:</b> <code>${useManualCookie ? 'Manual Cookie' : 'Auto Login'}</code></blockquote>`, { parse_mode: 'HTML', ...createBackButton() });
             } else {
-                await ctx.reply(`<blockquote><b>❌ Koneksi Gagal</b>
+                await editMsg(ctx, `<blockquote><b>❌ Koneksi Gagal</b>
 
 <b>Error:</b> ${escapeHtml(result.error || 'Cookie mungkin expired')}
 
@@ -1226,7 +1230,7 @@ Coba ambil cookie lagi lewat menu 🍪 Get Cookie.</blockquote>`, { parse_mode: 
             }
         } catch (err) {
             console.error('test_connection error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -1235,23 +1239,23 @@ Coba ambil cookie lagi lewat menu 🍪 Get Cookie.</blockquote>`, { parse_mode: 
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
-            await ctx.deleteMessage().catch(() => {});
+            
             const processedIds = await loadProcessedIds();
             const recent = [...processedIds].slice(-10);
             if (recent.length === 0) {
-                return ctx.reply('<blockquote><b>📭 Belum ada SMS yang diproses.</b></blockquote>', { parse_mode: 'HTML', ...createBackButton() });
+                return editMsg(ctx, '<blockquote><b>📭 Belum ada SMS yang diproses.</b></blockquote>', { parse_mode: 'HTML', ...createBackButton() });
             }
             const list = recent.map((s, i) => `${i + 1}. <code>${escapeHtml(s.substring(0, 55))}...</code>`).join('\n');
-            await ctx.reply(`<blockquote><b>📨 Riwayat SMS (10 terakhir)</b>
+            await editMsg(ctx, `<blockquote><b>📨 Riwayat SMS (10 terakhir)</b>
 
 ${list}
 
 <b>Total:</b> <code>${processedIds.size} SMS</code></blockquote>`, { parse_mode: 'HTML', ...createBackButton() });
         } catch (err) {
             console.error('list_sms error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -1260,13 +1264,13 @@ ${list}
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
-            await ctx.reply('<blockquote><b>🔄 Restart</b>\n\nBot bakal restart dalam 3 detik...</blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>🔄 Restart</b>\n\nBot bakal restart dalam 3 detik...</blockquote>', { parse_mode: 'HTML' });
             setTimeout(() => process.exit(0), 3000);
         } catch (err) {
             console.error('restart_bot error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -1275,9 +1279,9 @@ ${list}
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
-            await ctx.reply(`<blockquote><b>🗑️ Reset Data</b>
+            await editMsg(ctx, `<blockquote><b>🗑️ Reset Data</b>
 
 ⚠️ Ini bakal hapus semua:
 • Semua Chat ID
@@ -1292,7 +1296,7 @@ ${list}
             });
         } catch (err) {
             console.error('delete_all_data error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -1301,22 +1305,22 @@ ${list}
             await ctx.answerCbQuery();
             const uid = String(ctx.from.id);
             if (!ADMIN_CHAT_IDS.includes(uid)) {
-                return ctx.reply('<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
+                return editMsg(ctx, '<blockquote><b>⛔ Akses ditolak.</b></blockquote>', { parse_mode: 'HTML' });
             }
             await saveChatIds([]);
             await fs.writeFile(STATE_FILE, JSON.stringify([], null, 2));
             _processedCache = new Set();
-            await ctx.reply('<blockquote><b>✅ Semua data sudah dihapus.</b></blockquote>', { parse_mode: 'HTML', ...createBackButton() });
+            await editMsg(ctx, '<blockquote><b>✅ Semua data sudah dihapus.</b></blockquote>', { parse_mode: 'HTML', ...createBackButton() });
         } catch (err) {
             console.error('confirm_delete_all error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
     bot.action('cancel_delete', async (ctx) => {
         try {
             await ctx.answerCbQuery();
-            await ctx.reply('<blockquote><b>❌ Dibatalin.</b></blockquote>', { parse_mode: 'HTML', ...createBackButton() });
+            await editMsg(ctx, '<blockquote><b>❌ Dibatalin.</b></blockquote>', { parse_mode: 'HTML', ...createBackButton() });
         } catch (err) {
             console.error('cancel_delete error:', err);
         }
@@ -1325,7 +1329,7 @@ ${list}
     bot.action('back_to_main', async (ctx) => {
         try {
             await ctx.answerCbQuery();
-            await ctx.deleteMessage().catch(() => {});
+            
             const uid = String(ctx.from.id);
             const isAdmin = ADMIN_CHAT_IDS.includes(uid);
             const msg = `<blockquote><b>🏠 Main Menu</b>
@@ -1333,10 +1337,10 @@ ${list}
 Balik lagi ${isAdmin ? '👑 Admin' : '👤 User'}.
 
 Mau ngapain?</blockquote>`;
-            await ctx.reply(msg, { parse_mode: 'HTML', ...createMainMenu() });
+            await editMsg(ctx, msg, { parse_mode: 'HTML', ...createMainMenu() });
         } catch (err) {
             console.error('back_to_main error:', err);
-            await ctx.reply('<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
+            await editMsg(ctx, '<blockquote><b>❌ Error.</b></blockquote>', { parse_mode: 'HTML' });
         }
     });
 
@@ -1356,7 +1360,7 @@ Mau ngapain?</blockquote>`;
 
             if (input === '/batal') {
                 await saveTempState({ waitingFor: null, tempData: {} });
-                return ctx.reply('<blockquote><b>❌ Dibatalin.</b></blockquote>', { parse_mode: 'HTML', ...createMainMenu() });
+                return editMsg(ctx, '<blockquote><b>❌ Dibatalin.</b></blockquote>', { parse_mode: 'HTML', ...createMainMenu() });
             }
 
             if (tempState.waitingFor === 'add_chat') {
@@ -1373,7 +1377,7 @@ Mau ngapain?</blockquote>`;
             } else if (tempState.waitingFor === 'change_interval') {
                 const val = parseInt(input, 10);
                 if (isNaN(val) || val < 5 || val > 300) {
-                    return ctx.reply('<blockquote><b>❌ Angkanya harus antara 5 sampai 300 detik.</b></blockquote>', { parse_mode: 'HTML' });
+                    return editMsg(ctx, '<blockquote><b>❌ Angkanya harus antara 5 sampai 300 detik.</b></blockquote>', { parse_mode: 'HTML' });
                 }
                 const settings = await loadSettings();
                 settings.interval = val;
